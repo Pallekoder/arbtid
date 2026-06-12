@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Arbejdstid">
+<meta name="theme-color" content="#0d0f14">
+<title>Arbejdstid</title>
+
+<!-- PWA Manifest inline as data URI -->
+<link rel="manifest" href="data:application/manifest+json,{
+  %22name%22:%22Arbejdstid%22,
+  %22short_name%22:%22Arbejdstid%22,
+  %22start_url%22:%22.%22,
+  %22display%22:%22standalone%22,
+  %22background_color%22:%22%230d0f14%22,
+  %22theme_color%22:%22%230d0f14%22,
+  %22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230d0f14'/%3E%3Ccircle cx='50' cy='50' r='30' stroke='%234a9eff' stroke-width='5' fill='none'/%3E%3Cline x1='50' y1='50' x2='50' y2='28' stroke='%234a9eff' stroke-width='5' stroke-linecap='round'/%3E%3Cline x1='50' y1='50' x2='64' y2='58' stroke='%233dca8a' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E%22,%22sizes%22:%22any%22,%22type%22:%22image/svg+xml%22}]
+}">
+
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230d0f14'/%3E%3Ccircle cx='50' cy='50' r='30' stroke='%234a9eff' stroke-width='5' fill='none'/%3E%3Cline x1='50' y1='50' x2='50' y2='28' stroke='%234a9eff' stroke-width='5' stroke-linecap='round'/%3E%3Cline x1='50' y1='50' x2='64' y2='58' stroke='%233dca8a' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+:root{
+  --bg:#0d0f14;--surface:#161920;--card:#1e2129;--border:#2a2e3a;
+  --text:#f0f2f8;--muted:#8891a8;--accent:#4a9eff;--green:#3dca8a;
+  --amber:#f59e0b;--red:#ef4444;--purple:#a78bfa;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;
+  padding-top:var(--safe-top);
+}
+.app{height:100vh;display:flex;flex-direction:column;padding-top:var(--safe-top)}
+.pages{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(72px + var(--safe-bottom))}
+.page{display:none}
+.page.active{display:block}
+.header{padding:16px 20px 4px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);z-index:10;padding-top:20px}
+.header h1{font-size:24px;font-weight:700;letter-spacing:-0.6px}
+.header-right{display:flex;align-items:center;gap:8px}
+.week-badge{font-size:12px;color:var(--muted);background:var(--card);padding:4px 10px;border-radius:20px;border:1px solid var(--border);font-variant-numeric:tabular-nums}
+.icon-btn{background:var(--card);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px}
+.icon-btn:active{transform:scale(0.94)}
+
+/* Clock */
+.clock-section{padding:12px 16px 0}
+.clock-card{background:var(--card);border-radius:22px;border:1px solid var(--border);padding:22px;text-align:center}
+.current-time{font-size:44px;font-weight:300;letter-spacing:-2px;color:var(--text);line-height:1;font-variant-numeric:tabular-nums}
+.current-date{font-size:13px;color:var(--muted);margin-top:5px}
+.day-off-banner{margin-top:10px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);border-radius:10px;padding:8px 14px;font-size:13px;color:var(--purple);display:none}
+.status-row{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.dot.live{background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.status-text{font-size:13px;color:var(--muted)}
+.session-time{font-size:13px;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums;min-width:40px}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.btn{padding:15px;border-radius:14px;border:none;font-size:16px;font-weight:600;cursor:pointer;transition:transform 0.1s,opacity 0.15s;letter-spacing:-0.2px}
+.btn:active{transform:scale(0.96)}
+.btn-in{background:var(--green);color:#071a11}
+.btn-out{background:var(--red);color:#fff}
+.btn-off{background:var(--card);color:var(--border);border:1px solid var(--border);cursor:default;opacity:0.5}
+
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 16px 0}
+.stat{background:var(--card);border-radius:16px;border:1px solid var(--border);padding:14px}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.stat-value{font-size:22px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;letter-spacing:-0.5px}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.stat.blue{border-color:rgba(74,158,255,0.25);background:rgba(74,158,255,0.07)}
+.stat.blue .stat-value{color:var(--accent)}
+.stat.amber{border-color:rgba(245,158,11,0.25);background:rgba(245,158,11,0.07)}
+.stat.amber .stat-value{color:var(--amber)}
+
+/* Progress */
+.section-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:16px 20px 8px}
+.progress-wrap{padding:0 16px}
+.track{background:var(--card);border-radius:100px;height:7px;overflow:hidden;border:1px solid var(--border)}
+.fill{height:100%;border-radius:100px;transition:width 0.6s ease}
+.fill.normal{background:var(--green)}
+.fill.over{background:var(--amber)}
+.prog-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:5px;font-variant-numeric:tabular-nums}
+
+/* History */
+.week-nav-row{display:flex;align-items:center;justify-content:space-between;padding:4px 16px;margin-bottom:2px}
+.nav-btn-w{background:var(--card);border:1px solid var(--border);color:var(--text);font-size:20px;width:38px;height:38px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.nav-btn-w:active{transform:scale(0.94)}
+.week-lbl{font-size:14px;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
+.entries{padding:0 16px;display:flex;flex-direction:column;gap:8px}
+.entry{background:var(--card);border-radius:14px;border:1px solid var(--border);padding:13px 15px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.entry:active{transform:scale(0.99)}
+.entry.off{border-color:rgba(167,139,250,0.3);background:rgba(167,139,250,0.06)}
+.entry.ot{border-color:rgba(245,158,11,0.3)}
+.entry-day{font-size:15px;font-weight:600}
+.entry-day.purple{color:var(--purple)}
+.entry-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.entry-right{text-align:right;display:flex;align-items:center;gap:10px}
+.entry-h{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+.entry-times{font-size:11px;color:var(--muted);margin-top:2px}
+.chev{color:var(--muted);font-size:18px}
+.badge{display:inline-block;font-size:10px;padding:2px 6px;border-radius:5px;font-weight:700;margin-left:5px;vertical-align:middle;letter-spacing:0.3px}
+.b-ot{background:rgba(245,158,11,0.15);color:var(--amber)}
+.b-off{background:rgba(167,139,250,0.15);color:var(--purple)}
+.b-wo{background:rgba(239,68,68,0.15);color:var(--red)}
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:14px}
+.add-row{padding:8px 16px 4px}
+.btn-wide{width:100%;padding:13px;border-radius:13px;border:1px dashed var(--border);background:var(--card);color:var(--accent);font-size:14px;font-weight:600;cursor:pointer}
+.btn-wide:active{transform:scale(0.99)}
+
+/* Schedule */
+.sched-list{padding:0 16px;display:flex;flex-direction:column;gap:8px}
+.sched{background:var(--card);border-radius:14px;border:1px solid rgba(167,139,250,0.25);background:rgba(167,139,250,0.06);padding:13px 15px;display:flex;align-items:center;justify-content:space-between}
+.sched.past{opacity:0.45}
+.sched-info .week{font-size:11px;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
+.sched-info .dayname{font-size:15px;font-weight:600;color:var(--purple);margin-top:2px}
+.sched-icon{font-size:22px}
+
+/* Pay */
+.pay-card{background:var(--card);border-radius:20px;border:1px solid var(--border);padding:18px;margin:0 16px}
+.pay-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)}
+.pay-row:last-child{border-bottom:none;padding-bottom:0}
+.pay-row.total{padding-top:15px}
+.pay-label{font-size:14px;color:var(--muted)}
+.pay-val{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.pay-val.green{color:var(--green)}
+.pay-val.amber{color:var(--amber)}
+.pay-val.blue{color:var(--accent)}
+.pay-val.big{font-size:24px;letter-spacing:-0.5px}
+.pay-val.purple{color:var(--purple)}
+.pay-note{margin:10px 16px 0;font-size:11px;color:var(--muted);padding:10px 13px;background:rgba(255,255,255,0.03);border-radius:10px;line-height:1.6}
+
+/* Nav */
+.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(13,15,20,0.96);border-top:1px solid var(--border);display:flex;padding-bottom:var(--safe-bottom);z-index:100}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--muted);font-size:10px;font-weight:600;cursor:pointer;padding:10px 4px 8px;transition:color 0.15s;text-transform:uppercase;letter-spacing:0.5px}
+.nav-item.on{color:var(--accent)}
+.nav-icon{font-size:22px;line-height:1}
+
+/* Overlays (auth / settings / editor) */
+.overlay{position:fixed;inset:0;background:var(--bg);z-index:300;display:none;flex-direction:column;padding-top:var(--safe-top)}
+.overlay.active{display:flex}
+.ov-head{padding:18px 20px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.ov-head h2{font-size:20px;font-weight:700;letter-spacing:-0.4px}
+.ov-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px calc(24px + var(--safe-bottom))}
+.ov-close{background:none;border:none;color:var(--muted);font-size:26px;cursor:pointer;line-height:1;padding:4px}
+
+/* Forms */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.6px}
+.field .hint{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.5}
+input,select{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);font-size:16px;padding:12px 13px;border-radius:12px;font-family:inherit;outline:none}
+input:focus,select:focus{border-color:var(--accent)}
+input[type=time]{font-variant-numeric:tabular-nums}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end}
+.card-block{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:15px;margin-bottom:16px}
+.card-block h3{font-size:14px;font-weight:700;margin-bottom:12px;letter-spacing:-0.2px}
+.btn-primary{width:100%;padding:14px;border-radius:13px;border:none;background:var(--accent);color:#001226;font-size:16px;font-weight:700;cursor:pointer}
+.btn-primary:active{transform:scale(0.98)}
+.btn-secondary{width:100%;padding:13px;border-radius:13px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:15px;font-weight:600;cursor:pointer;margin-top:10px}
+.btn-danger-sm{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);color:var(--red);border-radius:10px;font-size:13px;font-weight:600;padding:6px 10px;cursor:pointer}
+.btn-ghost-sm{background:var(--surface);border:1px solid var(--border);color:var(--accent);border-radius:10px;font-size:13px;font-weight:600;padding:8px 12px;cursor:pointer;width:100%;margin-top:6px}
+
+/* Segmented control */
+.seg{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;padding:9px 4px;border-radius:9px;cursor:pointer;font-family:inherit}
+.seg button.on{background:var(--accent);color:#001226}
+
+/* Weekday chips */
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{flex:1;min-width:38px;text-align:center;background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:13px;font-weight:600;padding:10px 2px;border-radius:10px;cursor:pointer}
+.chip.on{background:rgba(167,139,250,0.18);border-color:var(--purple);color:var(--purple)}
+
+/* Session/till. editor rows */
+.sess-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;margin-bottom:8px}
+.sess-row .dash{text-align:center;color:var(--muted)}
+.del-x{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);width:42px;height:44px;border-radius:11px;font-size:18px;cursor:pointer}
+.list-item{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-bottom:6px}
+.list-item .li-main{font-size:14px;font-weight:600}
+.list-item .li-sub{font-size:11px;color:var(--muted)}
+
+/* Auth */
+.auth-wrap{flex:1;display:flex;flex-direction:column;justify-content:center;padding:24px;max-width:420px;margin:0 auto;width:100%}
+.auth-logo{text-align:center;margin-bottom:28px}
+.auth-logo .big{font-size:28px;font-weight:700;letter-spacing:-0.5px}
+.auth-logo .sub{font-size:13px;color:var(--muted);margin-top:4px}
+.auth-err{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);color:#ff9b9b;font-size:13px;padding:10px 12px;border-radius:11px;margin-bottom:12px;display:none}
+.auth-toggle{text-align:center;margin-top:16px;font-size:14px;color:var(--muted)}
+.auth-toggle a{color:var(--accent);font-weight:600;text-decoration:none;cursor:pointer}
+.cloud-pill{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600}
+.cloud-pill.on{background:rgba(61,202,138,0.15);color:var(--green)}
+.cloud-pill.off{background:rgba(136,145,168,0.15);color:var(--muted)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(86px + var(--safe-bottom));background:var(--card);border:1px solid var(--border);color:var(--text);font-size:13px;padding:10px 16px;border-radius:12px;z-index:400;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- ===================== AUTH OVERLAY ===================== -->
+<div id="auth-overlay" class="overlay">
+  <div class="auth-wrap">
+    <div class="auth-logo">
+      <div class="big">⏱ Arbejdstid</div>
+      <div class="sub" id="auth-sub">Log ind for at gemme i skyen</div>
+    </div>
+    <div class="auth-err" id="auth-err"></div>
+    <div class="field"><label>Email</label><input id="auth-email" type="email" autocomplete="email" placeholder="dig@email.dk"></div>
+    <div class="field"><label>Adgangskode</label><input id="auth-pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+    <button class="btn-primary" id="auth-submit" onclick="App.authSubmit()">Log ind</button>
+    <div class="auth-toggle" id="auth-toggle-txt">Ingen konto? <a onclick="App.authToggle()">Opret en</a></div>
+    <button class="btn-secondary" onclick="App.useLocal()">Fortsæt uden konto (kun denne enhed)</button>
+  </div>
+</div>
+
+<!-- ===================== SETTINGS OVERLAY ===================== -->
+<div id="settings-overlay" class="overlay">
+  <div class="ov-head">
+    <h2>Indstillinger</h2>
+    <button class="ov-close" onclick="App.closeSettings()">×</button>
+  </div>
+  <div class="ov-body" id="settings-body"></div>
+</div>
+
+<!-- ===================== DAY EDITOR OVERLAY ===================== -->
+<div id="editor-overlay" class="overlay">
+  <div class="ov-head">
+    <h2 id="editor-title">Rediger dag</h2>
+    <button class="ov-close" onclick="App.closeEditor()">×</button>
+  </div>
+  <div class="ov-body" id="editor-body"></div>
+</div>
+
+<!-- ===================== MAIN APP ===================== -->
+<div class="app">
+  <div class="pages" id="pages">
+
+    <!-- HOME -->
+    <div id="p-home" class="page active">
+      <div class="header">
+        <h1>Arbejdstid</h1>
+        <div class="header-right">
+          <div class="week-badge" id="week-badge">Uge —</div>
+          <button class="icon-btn" onclick="App.openSettings()" title="Indstillinger">⚙</button>
+        </div>
+      </div>
+      <div class="clock-section">
+        <div class="clock-card">
+          <div class="current-time" id="clock">--:--:--</div>
+          <div class="current-date" id="date-label">—</div>
+          <div class="day-off-banner" id="off-banner">🗓️ Fridag i dag</div>
+          <div class="status-row">
+            <div class="dot" id="dot"></div>
+            <span class="status-text" id="status-text">Ikke stemplet ind</span>
+            <span class="session-time" id="session-time"></span>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-in" id="btn-in" onclick="App.stempleInd()">Stemple ind</button>
+            <button class="btn btn-out btn-off" id="btn-out" onclick="App.stempleUd()">Stemple ud</button>
+          </div>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat blue">
+          <div class="stat-label">Denne uge</div>
+          <div class="stat-value" id="s-week">0,0t</div>
+          <div class="stat-sub" id="s-week-sub">af 37,5 timer</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">I dag</div>
+          <div class="stat-value" id="s-today">0,0t</div>
+          <div class="stat-sub" id="s-today-sub">af 9,75 timer</div>
+        </div>
+        <div class="stat amber">
+          <div class="stat-label">Overarbejde</div>
+          <div class="stat-value" id="s-ot">0,0t</div>
+          <div class="stat-sub" id="s-afsp-sub">0,0t afspadsering</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Løn estimat</div>
+          <div class="stat-value" id="s-pay">0 kr</div>
+          <div class="stat-sub">Denne uge</div>
+        </div>
+      </div>
+      <div class="section-title">Ugeprogress</div>
+      <div class="progress-wrap">
+        <div class="track"><div class="fill normal" id="prog-fill" style="width:0%"></div></div>
+        <div class="prog-meta"><span id="prog-left">0,0t arbejdet</span><span id="prog-goal">37,5t mål</span></div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="p-history" class="page">
+      <div class="header"><h1>Historik</h1></div>
+      <div class="week-nav-row">
+        <button class="nav-btn-w" onclick="App.hwk(-1)">‹</button>
+        <span class="week-lbl" id="h-week-lbl">Uge —</span>
+        <button class="nav-btn-w" onclick="App.hwk(1)">›</button>
+      </div>
+      <div class="add-row"><button class="btn-wide" onclick="App.openEditor()">＋ Tilføj / rediger en dag</button></div>
+      <div class="entries" id="entries-list"></div>
+    </div>
+
+    <!-- SCHEDULE -->
+    <div id="p-schedule" class="page">
+      <div class="header"><h1>Fridage</h1></div>
+      <div class="section-title">Kommende fridage</div>
+      <div class="sched-list" id="sched-list"></div>
+    </div>
+
+    <!-- PAY -->
+    <div id="p-pay" class="page">
+      <div class="header"><h1>Lønoversigt</h1></div>
+      <div class="week-nav-row">
+        <button class="nav-btn-w" onclick="App.pwk(-1)">‹</button>
+        <span class="week-lbl" id="p-week-lbl">—</span>
+        <button class="nav-btn-w" onclick="App.pwk(1)">›</button>
+      </div>
+      <div id="pay-content"></div>
+    </div>
+
+  </div>
+
+  <nav class="nav">
+    <button class="nav-item on" onclick="App.nav('home',this)" id="nav-home"><span class="nav-icon">⏱</span>Stempel</button>
+    <button class="nav-item" onclick="App.nav('history',this)" id="nav-history"><span class="nav-icon">📋</span>Historik</button>
+    <button class="nav-item" onclick="App.nav('schedule',this)" id="nav-schedule"><span class="nav-icon">📅</span>Fridage</button>
+    <button class="nav-item" onclick="App.nav('pay',this)" id="nav-pay"><span class="nav-icon">💰</span>Løn</button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword,
+         signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence }
+       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, onSnapshot, initializeFirestore,
+         persistentLocalCache, persistentSingleTabManager }
+       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ╔═══════════════════════════════════════════════════════════════════════╗
+// ║  FIREBASE CONFIG — paste the values from your Firebase project here.     ║
+// ║  Until apiKey is filled in, the app runs in LOCAL mode (this device).    ║
+// ╚═══════════════════════════════════════════════════════════════════════╝
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB7rIUYHGzjhAqHT5NF20ORgEFRQ5d32RE",
+  authDomain: "arbejdstid-acf78.firebaseapp.com",
+  projectId: "arbejdstid-acf78",
+  storageBucket: "arbejdstid-acf78.firebasestorage.app",
+  messagingSenderId: "716472297269",
+  appId: "1:716472297269:web:e58f3a6a1360be3ed58e7c"
+};
+const CLOUD = FIREBASE_CONFIG.apiKey.length > 0;
+
+// ── Defaults ────────────────────────────────────────────────────────────────
+const DNAMES = ['Søndag','Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag'];
+const MONTHS = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
+
+const DEFAULT_SETTINGS = {
+  baseRate: 198,        // grundløn kr/t
+  otRate: 134,          // OT-tillæg kr/t (oven i grundløn)
+  weeklyTarget: 37.5,   // timer/uge før OT
+  dailyTarget: 9.75,    // timer/dag (kun til visning)
+  afspadsering: true,   // optjen 1 afspadseringstime pr. OT-time
+  tillaeg: [],          // [{name, rate, unit:'hour'|'period'}]
+  period: { startDay: 20 }, // lønperiode løber fra denne dato til samme dato næste måned
+  dayOff: {
+    mode: 'rotating',          // 'none' | 'fixed' | 'rotating' | 'manual'
+    fixedDays: [0,6],          // ugedage (0=søn..6=lør) for 'fixed'
+    rotating: { offsetBase: 3 },// fridag = (ISO-uge + offsetBase) % 5  (Man..Fre)
+    manualDates: []            // ['YYYY-MM-DD', ...] for 'manual'
+  },
+  overrides: { off: [], work: [] } // manuelle undtagelser oven på mønsteret
+};
+
+// ── State ────────────────────────────────────────────────────────────────────
+let entries = {}, activeStart = null, settings = clone(DEFAULT_SETTINGS);
+let hOff = 0, pOff = 0, currentPage = 'home';
+let mode = CLOUD ? 'cloud' : 'local';   // 'cloud' | 'local'
+let user = null, db = null, auth = null, unsub = null;
+let authMode = 'login';                  // 'login' | 'signup'
+let editorKey = null, editorDraft = null;
+let settingsDraft = null;
+let applyingRemote = false;              // guard against echo writes
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function el(id){ return document.getElementById(id); }
+function mergeSettings(s){
+  const m = clone(DEFAULT_SETTINGS);
+  if(!s) return m;
+  for(const k in s){
+    if(s[k] && typeof s[k]==='object' && !Array.isArray(s[k])) m[k] = Object.assign(m[k]||{}, s[k]);
+    else m[k] = s[k];
+  }
+  return m;
+}
+function toast(msg){
+  const t = el('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+// ── Date helpers ─────────────────────────────────────────────────────────────
+function isoWeek(d){
+  const dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const day=dt.getUTCDay()||7; dt.setUTCDate(dt.getUTCDate()+4-day);
+  const ys=new Date(Date.UTC(dt.getUTCFullYear(),0,1));
+  return Math.ceil((((dt-ys)/86400000)+1)/7);
+}
+function weekStart(d){ const w=new Date(d); const day=w.getDay()||7; w.setDate(w.getDate()-day+1); w.setHours(0,0,0,0); return w; }
+function weekStartOff(n){ const ws=weekStart(new Date()); ws.setDate(ws.getDate()+n*7); return ws; }
+function dk(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function parseKey(k){ const [y,m,dd]=k.split('-').map(Number); return new Date(y,m-1,dd); }
+function fmtH(h){
+  if(Math.abs(h)<0.0001) return '0,0t';
+  const s=h<0?'-':'', a=Math.abs(h), hh=Math.floor(a), mm=Math.round((a-hh)*60);
+  if(mm===60) return `${s}${hh+1}t`;
+  return mm?`${s}${hh}t ${mm}m`:`${s}${hh}t`;
+}
+function fmtT(ts){ const d=new Date(ts); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+function fmtKr(n){ return `${Math.round(n).toLocaleString('da-DK')} kr`; }
+function tsFor(key,hhmm){ const [y,m,dd]=key.split('-').map(Number); const [h,mi]=hhmm.split(':').map(Number); return new Date(y,m-1,dd,h,mi,0,0).getTime(); }
+
+// ── Day-off logic (configurable) ─────────────────────────────────────────────
+function rotatingOffDate(ws){
+  const off=(isoWeek(ws)+settings.dayOff.rotating.offsetBase)%5; // 0=Man..4=Fre
+  const d=new Date(ws); d.setDate(d.getDate()+off); return d;
+}
+function isOffDay(d){
+  const k=dk(d), cfg=settings.dayOff;
+  if(settings.overrides.work.includes(k)) return false;  // forced work
+  if(settings.overrides.off.includes(k))  return true;   // forced off
+  switch(cfg.mode){
+    case 'none':     return false;
+    case 'fixed':    return cfg.fixedDays.includes(d.getDay());
+    case 'manual':   return cfg.manualDates.includes(k);
+    case 'rotating': return k===dk(rotatingOffDate(weekStart(d)));
+    default:         return false;
+  }
+}
+// upcoming off-days for the Fridage page
+function upcomingOffDays(count){
+  const out=[], now=new Date(); now.setHours(0,0,0,0);
+  const cfg=settings.dayOff;
+  if(cfg.mode==='none' && settings.overrides.off.length===0) return out;
+  if(cfg.mode==='manual'){
+    [...new Set([...cfg.manualDates, ...settings.overrides.off])].sort().forEach(k=>{
+      if(out.length<count && parseKey(k)>=now) out.push(parseKey(k));
+    });
+    return out;
+  }
+  let d=new Date(now);
+  for(let i=0;i<400 && out.length<count;i++){
+    if(isOffDay(d)) out.push(new Date(d));
+    d.setDate(d.getDate()+1);
+  }
+  return out;
+}
+
+// ── Calculations ─────────────────────────────────────────────────────────────
+function dayHours(key,inclActive){
+  let t=0;
+  (entries[key]||[]).forEach(e=>{
+    const end = e.end || (inclActive && activeStart ? Date.now() : 0);
+    if(end) t += (end-e.start)/3600000;
+  });
+  return t;
+}
+function weekHours(ws,inclActive){
+  let t=0;
+  for(let i=0;i<7;i++){ const d=new Date(ws); d.setDate(d.getDate()+i); t+=dayHours(dk(d),inclActive); }
+  return t;
+}
+function todayHours(){ return dayHours(dk(new Date()),true); }
+
+function calcPay(wh){
+  const W=settings.weeklyTarget, B=settings.baseRate, O=settings.otRate;
+  const norm=Math.min(wh,W), otH=Math.max(0,wh-W);
+  let extra=0; const extras=[];
+  settings.tillaeg.forEach(t=>{
+    const amt = t.unit==='hour' ? (t.rate||0)*wh : (t.rate||0);
+    extra+=amt; extras.push({name:t.name, amt, unit:t.unit});
+  });
+  return {
+    wh, norm, otH,
+    base:norm*B, otBase:otH*B, otPay:otH*O, afsp: settings.afspadsering?otH:0,
+    extras, extra,
+    total: norm*B + otH*B + otH*O + extra
+  };
+}
+
+// ── Pay period ───────────────────────────────────────────────────────────────
+// Period containing date d: [startDay this/prev month, startDay next month)
+function periodRange(anchor){
+  const sd=settings.period.startDay;
+  let y=anchor.getFullYear(), m=anchor.getMonth();
+  if(anchor.getDate()<sd){ m-=1; if(m<0){m=11;y-=1;} }
+  const start=new Date(y,m,sd); start.setHours(0,0,0,0);
+  const end=new Date(y,m+1,sd); end.setHours(0,0,0,0); // exclusive
+  return {start,end};
+}
+function shiftPeriod(range,n){ const a=new Date(range.start); a.setMonth(a.getMonth()+n); return periodRange(new Date(a.getFullYear(),a.getMonth(),settings.period.startDay+1)); }
+function lastWorkday(year,month){ // last Mon-Fri of month (month 0-based)
+  const d=new Date(year,month+1,0);
+  while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()-1);
+  return d;
+}
+function periodPay(range){
+  // base on all hours in range; OT computed per ISO-week using only in-range days
+  let totalH=0; const byWeek={};
+  let d=new Date(range.start);
+  while(d<range.end){
+    const k=dk(d), h=dayHours(k,false);
+    if(h>0){ totalH+=h; const wk=isoWeek(d)+'-'+weekStart(d).getFullYear(); byWeek[wk]=(byWeek[wk]||0)+h; }
+    d.setDate(d.getDate()+1);
+  }
+  let otH=0; Object.values(byWeek).forEach(wh=>otH+=Math.max(0,wh-settings.weeklyTarget));
+  const normH=totalH-otH;
+  const B=settings.baseRate,O=settings.otRate;
+  let extra=0; const extras=[];
+  settings.tillaeg.forEach(t=>{ const amt=t.unit==='hour'?(t.rate||0)*totalH:(t.rate||0); extra+=amt; extras.push({name:t.name,amt,unit:t.unit}); });
+  return { totalH,normH,otH, base:normH*B, otBase:otH*B, otPay:otH*O, afsp:settings.afspadsering?otH:0, extras,extra,
+           total:normH*B+otH*B+otH*O+extra };
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  STORAGE                                                                    ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+const LK = 'arbejdstid_v4';
+function localSave(){
+  try{ localStorage.setItem(LK, JSON.stringify({entries,settings,activeStart})); }catch(e){}
+}
+function localLoad(){
+  try{
+    let d=JSON.parse(localStorage.getItem(LK)||'null');
+    if(!d){ // migrate from v3
+      const old=JSON.parse(localStorage.getItem('arbejdstid_v3')||'null');
+      if(old){ d={entries:old.entries||{}, activeStart:old.activeStart||null, settings:null}; }
+    }
+    if(d){ entries=d.entries||{}; activeStart=d.activeStart||null; settings=mergeSettings(d.settings); }
+  }catch(e){}
+}
+function persist(){
+  localSave();
+  if(mode==='cloud' && user && db && !applyingRemote){
+    setDoc(doc(db,'users',user.uid), {entries,settings,activeStart,updated:Date.now()}, {merge:true})
+      .catch(err=>toast('Sync-fejl — gemt lokalt'));
+  }
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  UI — clock & stats                                                         ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+function updateClock(){
+  const now=new Date();
+  el('clock').textContent=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  el('date-label').textContent=`${DNAMES[now.getDay()]} ${now.getDate()}. ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+  el('week-badge').textContent=`Uge ${isoWeek(now)}`;
+  el('off-banner').style.display=isOffDay(now)?'block':'none';
+  if(activeStart) el('session-time').textContent=fmtH((Date.now()-activeStart)/3600000);
+  updateStats();
+}
+function updateStats(){
+  const ws=weekStart(new Date());
+  const wh=weekHours(ws,true), td=todayHours(), ot=Math.max(0,wh-settings.weeklyTarget);
+  const pay=calcPay(wh), pct=Math.min((wh/settings.weeklyTarget)*100,100);
+  el('s-week').textContent=fmtH(wh);
+  el('s-week-sub').textContent=`af ${fmtH(settings.weeklyTarget)} timer`;
+  el('s-today').textContent=fmtH(td);
+  el('s-today-sub').textContent=`af ${fmtH(settings.dailyTarget)} timer`;
+  el('s-ot').textContent=fmtH(ot);
+  el('s-afsp-sub').textContent= settings.afspadsering?`${fmtH(ot)} afspadsering`:'—';
+  el('s-pay').textContent=fmtKr(pay.total);
+  const fill=el('prog-fill');
+  fill.style.width=pct+'%';
+  fill.className='fill '+(wh>settings.weeklyTarget?'over':'normal');
+  el('prog-left').textContent=`${fmtH(wh)} arbejdet`;
+  el('prog-goal').textContent=`${fmtH(settings.weeklyTarget)} mål`;
+}
+
+// ── Stamp actions ────────────────────────────────────────────────────────────
+function stempleInd(){
+  if(activeStart) return;
+  const k=dk(new Date()); if(!entries[k]) entries[k]=[];
+  activeStart=Date.now(); entries[k].push({start:activeStart,end:null});
+  persist(); reflectStampUI(true); updateStats();
+}
+function stempleUd(){
+  if(!activeStart) return;
+  const k=dk(new Date()), arr=entries[k]||[], last=arr[arr.length-1];
+  if(last&&!last.end) last.end=Date.now();
+  activeStart=null; persist(); reflectStampUI(false);
+  el('session-time').textContent=''; updateStats();
+}
+function reflectStampUI(on){
+  el('dot').className= on?'dot live':'dot';
+  el('status-text').textContent= on?'Stemplet ind':'Stemplet ud';
+  el('btn-in').className= on?'btn btn-in btn-off':'btn btn-in';
+  el('btn-out').className= on?'btn btn-out':'btn btn-out btn-off';
+}
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+function nav(name,btn){
+  currentPage=name;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('on'));
+  el('p-'+name).classList.add('active');
+  if(btn) btn.classList.add('on');
+  el('pages').scrollTop=0;
+  if(name==='history') renderHistory();
+  if(name==='schedule') renderSchedule();
+  if(name==='pay') renderPay();
+}
+function refresh(){
+  updateStats();
+  if(currentPage==='history') renderHistory();
+  if(currentPage==='schedule') renderSchedule();
+  if(currentPage==='pay') renderPay();
+}
+function hwk(d){ hOff+=d; renderHistory(); }
+function pwk(d){ pOff+=d; renderPay(); }
+
+// ── History render ───────────────────────────────────────────────────────────
+function renderHistory(){
+  const ws=weekStartOff(hOff);
+  el('h-week-lbl').textContent=`Uge ${isoWeek(ws)}`;
+  const list=el('entries-list'); list.innerHTML=''; let any=false;
+  for(let i=0;i<7;i++){
+    const d=new Date(ws); d.setDate(d.getDate()+i);
+    const k=dk(d), off=isOffDay(d);
+    let total=0; const times=[];
+    (entries[k]||[]).forEach(e=>{ if(e.end){ total+=(e.end-e.start)/3600000; times.push(`${fmtT(e.start)}–${fmtT(e.end)}`); } });
+    if(total===0 && !off && i>=5) continue;        // hide empty weekend days
+    if(total===0 && !off && i<5){ /* show empty weekdays */ }
+    any=true;
+    const workedOff=total>0&&off, isOT=total>settings.dailyTarget&&!off;
+    const card=document.createElement('div');
+    card.className='entry'+(off?' off':'')+(isOT?' ot':'');
+    card.onclick=()=>openEditor(k);
+    const badges=(off?`<span class="badge b-off">Fridag</span>`:'')+
+      (isOT?`<span class="badge b-ot">OT</span>`:'')+
+      (workedOff?`<span class="badge b-wo">Arbejdede</span>`:'');
+    card.innerHTML=`<div>
+      <div class="entry-day${off?' purple':''}">${DNAMES[d.getDay()]}${badges}</div>
+      <div class="entry-sub">${d.getDate()}. ${MONTHS[d.getMonth()]}</div>
+    </div>
+    <div class="entry-right">
+      <div>
+        <div class="entry-h">${total>0?fmtH(total):'—'}</div>
+        <div class="entry-times">${times.join(', ')}</div>
+      </div>
+      <span class="chev">›</span>
+    </div>`;
+    list.appendChild(card);
+  }
+  if(!any) list.innerHTML='<div class="empty">Ingen registreringer denne uge</div>';
+}
+
+// ── Schedule render ──────────────────────────────────────────────────────────
+function renderSchedule(){
+  const list=el('sched-list'); list.innerHTML='';
+  const days=upcomingOffDays(12);
+  if(days.length===0){ list.innerHTML='<div class="empty">Ingen fridage konfigureret.<br>Sæt dem op under ⚙ Indstillinger.</div>'; return; }
+  const now=new Date(), todayKey=dk(now);
+  const tmr=new Date(now); tmr.setDate(tmr.getDate()+1); const tmrKey=dk(tmr);
+  days.forEach(off=>{
+    const k=dk(off), isToday=k===todayKey, isTomorrow=k===tmrKey;
+    const workedOff=entries[k]&&entries[k].some(e=>e.end);
+    const card=document.createElement('div'); card.className='sched';
+    const label=isToday?' 📌 I dag':isTomorrow?' 📌 I morgen':'';
+    const woBadge=workedOff?`<span class="badge b-wo" style="margin-left:6px">Arbejdede</span>`:'';
+    card.innerHTML=`<div class="sched-info">
+      <div class="week">Uge ${isoWeek(off)}</div>
+      <div class="dayname">${DNAMES[off.getDay()]} ${off.getDate()}/${off.getMonth()+1}${label}${woBadge}</div>
+    </div><div class="sched-icon">🗓️</div>`;
+    list.appendChild(card);
+  });
+}
+
+// ── Pay render (period based) ────────────────────────────────────────────────
+function renderPay(){
+  let range=periodRange(new Date());
+  if(pOff!==0) range=shiftPeriod(range,pOff);
+  const p=periodPay(range);
+  const endDisp=new Date(range.end); endDisp.setDate(endDisp.getDate()-1);
+  const payout=lastWorkday(endDisp.getFullYear(), endDisp.getMonth());
+  el('p-week-lbl').textContent=`${range.start.getDate()}/${range.start.getMonth()+1} – ${endDisp.getDate()}/${endDisp.getMonth()+1}`;
+  let extraRows='';
+  p.extras.forEach(x=>{ if(Math.abs(x.amt)>0.001) extraRows+=`<div class="pay-row"><span class="pay-label">${x.name||'Tillæg'}</span><span class="pay-val">${fmtKr(x.amt)}</span></div>`; });
+  el('pay-content').innerHTML=`
+    <div class="pay-card">
+      <div class="pay-row"><span class="pay-label">Timer i perioden</span><span class="pay-val">${fmtH(p.totalH)}</span></div>
+      <div class="pay-row"><span class="pay-label">Normale timer</span><span class="pay-val">${fmtH(p.normH)}</span></div>
+      <div class="pay-row"><span class="pay-label">Overarbejdstimer</span><span class="pay-val amber">${fmtH(p.otH)}</span></div>
+      ${settings.afspadsering?`<div class="pay-row"><span class="pay-label">Afspadsering optjent</span><span class="pay-val purple">${fmtH(p.afsp)}</span></div>`:''}
+      <div class="pay-row"><span class="pay-label">Grundløn (${p.normH.toFixed(2)}t × ${settings.baseRate})</span><span class="pay-val green">${fmtKr(p.base)}</span></div>
+      <div class="pay-row"><span class="pay-label">OT grundløn (${p.otH.toFixed(2)}t × ${settings.baseRate})</span><span class="pay-val amber">${fmtKr(p.otBase)}</span></div>
+      <div class="pay-row"><span class="pay-label">OT tillæg (${p.otH.toFixed(2)}t × ${settings.otRate})</span><span class="pay-val amber">${fmtKr(p.otPay)}</span></div>
+      ${extraRows}
+      <div class="pay-row total"><span class="pay-label" style="color:var(--text);font-weight:700">Total løn</span><span class="pay-val blue big">${fmtKr(p.total)}</span></div>
+    </div>
+    <div class="pay-note">Lønperiode: ${range.start.getDate()}. ${MONTHS[range.start.getMonth()]} – ${endDisp.getDate()}. ${MONTHS[endDisp.getMonth()]}.
+    Forventet udbetaling: <b>${payout.getDate()}. ${MONTHS[payout.getMonth()]}</b> (sidste hverdag).
+    Sats: ${settings.baseRate} kr/t grundløn · ${settings.otRate} kr/t OT-tillæg. Estimat.</div>`;
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  DAY EDITOR                                                                 ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+function openEditor(key){
+  key = key || dk(new Date());
+  editorKey = key;
+  const completed=(entries[key]||[]).filter(e=>e.end).map(e=>({start:fmtT(e.start),end:fmtT(e.end)}));
+  editorDraft = { sessions: completed.length?completed:[{start:'08:00',end:'16:00'}] };
+  renderEditor();
+  el('editor-overlay').classList.add('active');
+}
+function renderEditor(){
+  const d=parseKey(editorKey), off=isOffDay(d);
+  el('editor-title').textContent=`${DNAMES[d.getDay()]} ${d.getDate()}. ${MONTHS[d.getMonth()]}`;
+  let rows='';
+  editorDraft.sessions.forEach((s,i)=>{
+    rows+=`<div class="sess-row">
+      <input type="time" value="${s.start}" onchange="App.editSess(${i},'start',this.value)">
+      <input type="time" value="${s.end}" onchange="App.editSess(${i},'end',this.value)">
+      <button class="del-x" onclick="App.delSess(${i})">×</button>
+    </div>`;
+  });
+  // live total
+  let total=0;
+  editorDraft.sessions.forEach(s=>{ if(s.start&&s.end){ let a=tsFor(editorKey,s.start),b=tsFor(editorKey,s.end); if(b<=a)b+=86400000; total+=(b-a)/3600000; } });
+  el('editor-body').innerHTML=`
+    <div class="field">
+      <label>Dato</label>
+      <input type="date" id="ed-date" value="${editorKey}" onchange="App.changeEditorDate(this.value)">
+    </div>
+    <div class="card-block">
+      <h3>Arbejdstider · <span style="color:var(--accent)">${fmtH(total)}</span></h3>
+      ${rows||'<div class="li-sub" style="margin-bottom:8px">Ingen tider — tilføj en.</div>'}
+      <button class="btn-ghost-sm" onclick="App.addSess()">＋ Tilføj tidsrum</button>
+    </div>
+    <div class="card-block">
+      <h3>Fridag</h3>
+      <div class="seg">
+        <button class="${off?'':'on'}" onclick="App.setEditorOff(false)">Arbejdsdag</button>
+        <button class="${off?'on':''}" onclick="App.setEditorOff(true)">Fridag</button>
+      </div>
+      <div class="hint" style="margin-top:8px">Overskriver mønsteret for netop denne dato.</div>
+    </div>
+    <button class="btn-primary" onclick="App.saveEditor()">Gem dag</button>
+    <button class="btn-secondary" onclick="App.clearDay()">Slet alle tider for dagen</button>`;
+}
+function changeEditorDate(v){
+  if(!v) return;
+  // persist current rows under the old key first? keep simple: just switch & reload that day's data
+  editorKey=v;
+  const completed=(entries[v]||[]).filter(e=>e.end).map(e=>({start:fmtT(e.start),end:fmtT(e.end)}));
+  editorDraft={ sessions: completed.length?completed:[{start:'08:00',end:'16:00'}] };
+  renderEditor();
+}
+function addSess(){ editorDraft.sessions.push({start:'08:00',end:'16:00'}); renderEditor(); }
+function delSess(i){ editorDraft.sessions.splice(i,1); renderEditor(); }
+function editSess(i,f,v){ editorDraft.sessions[i][f]=v; renderEditor(); }
+function setEditorOff(on){
+  const k=editorKey;
+  settings.overrides.off  = settings.overrides.off.filter(x=>x!==k);
+  settings.overrides.work = settings.overrides.work.filter(x=>x!==k);
+  const patternOff = (function(){ // off according to pattern (ignoring overrides)
+    const d=parseKey(k), cfg=settings.dayOff;
+    if(cfg.mode==='none') return false;
+    if(cfg.mode==='fixed') return cfg.fixedDays.includes(d.getDay());
+    if(cfg.mode==='manual') return cfg.manualDates.includes(k);
+    if(cfg.mode==='rotating') return k===dk(rotatingOffDate(weekStart(d)));
+    return false;
+  })();
+  if(on && !patternOff) settings.overrides.off.push(k);
+  if(!on && patternOff) settings.overrides.work.push(k);
+  renderEditor();
+}
+function saveEditor(){
+  const k=editorKey;
+  const open=(entries[k]||[]).filter(e=>!e.end); // keep any running session
+  const built=[];
+  editorDraft.sessions.forEach(s=>{
+    if(s.start&&s.end){ let a=tsFor(k,s.start), b=tsFor(k,s.end); if(b<=a)b+=86400000; built.push({start:a,end:b}); }
+  });
+  const all=[...built,...open];
+  if(all.length) entries[k]=all.sort((x,y)=>x.start-y.start); else delete entries[k];
+  persist(); closeEditor(); refresh(); toast('Dag gemt');
+}
+function clearDay(){
+  const open=(entries[editorKey]||[]).filter(e=>!e.end);
+  if(open.length) entries[editorKey]=open; else delete entries[editorKey];
+  persist(); closeEditor(); refresh(); toast('Tider slettet');
+}
+function closeEditor(){ el('editor-overlay').classList.remove('active'); }
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  SETTINGS                                                                   ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+function openSettings(){ settingsDraft=clone(settings); renderSettings(); el('settings-overlay').classList.add('active'); }
+function closeSettings(){ el('settings-overlay').classList.remove('active'); }
+function renderSettings(){
+  const s=settingsDraft;
+  const wd=[1,2,3,4,5,6,0]; // Man..Søn display order
+  const wdShort=['Søn','Man','Tir','Ons','Tor','Fre','Lør'];
+  const chips=wd.map(i=>`<div class="chip ${s.dayOff.fixedDays.includes(i)?'on':''}" onclick="App.toggleFixed(${i})">${wdShort[i]}</div>`).join('');
+  const tillRows=s.tillaeg.map((t,i)=>`
+    <div class="row3" style="margin-bottom:8px">
+      <div><input placeholder="Navn (fx Aftentillæg)" value="${t.name||''}" onchange="App.editTill(${i},'name',this.value)"></div>
+      <div><input type="number" inputmode="decimal" placeholder="kr" value="${t.rate??''}" onchange="App.editTill(${i},'rate',this.value)"></div>
+      <button class="del-x" onclick="App.delTill(${i})">×</button>
+      <div style="grid-column:1/3">
+        <select onchange="App.editTill(${i},'unit',this.value)">
+          <option value="hour" ${t.unit==='hour'?'selected':''}>kr pr. arbejdstime</option>
+          <option value="period" ${t.unit==='period'?'selected':''}>kr fast pr. periode</option>
+        </select>
+      </div>
+    </div>`).join('');
+  const modeBtn=(m,lbl)=>`<button class="${s.dayOff.mode===m?'on':''}" onclick="App.setDayMode('${m}')">${lbl}</button>`;
+  let modeCfg='';
+  if(s.dayOff.mode==='fixed') modeCfg=`<div class="field"><label>Faste fridage</label><div class="chips">${chips}</div></div>`;
+  else if(s.dayOff.mode==='rotating') modeCfg=`
+    <div class="field"><label>Vælg en kommende fridag</label>
+      <input type="date" id="rot-pick" onchange="App.setRotating(this.value)">
+      <div class="hint">Fridagen rykker én hverdag pr. uge. Vælg en dato hvor du har fri, så regner appen mønsteret ud. Nuværende offset: ${s.dayOff.rotating.offsetBase}.</div>
+    </div>`;
+  else if(s.dayOff.mode==='manual'){
+    const dl=s.dayOff.manualDates.slice().sort().map((k,i)=>`<div class="list-item"><span class="li-main">${k}</span><button class="btn-danger-sm" onclick="App.delManual(${i})">Fjern</button></div>`).join('');
+    modeCfg=`<div class="field"><label>Fridage (vælg datoer)</label>${dl||'<div class="li-sub" style="margin-bottom:6px">Ingen datoer endnu.</div>'}
+      <input type="date" id="man-pick"><button class="btn-ghost-sm" onclick="App.addManual()">＋ Tilføj dato</button></div>`;
+  }
+
+  el('settings-body').innerHTML=`
+    <div class="card-block">
+      <h3>Konto</h3>
+      <div class="list-item"><div><div class="li-main" id="acc-name">—</div><div class="li-sub" id="acc-mode">—</div></div>
+      <button class="btn-danger-sm" id="acc-btn" onclick="App.accountAction()">—</button></div>
+    </div>
+
+    <div class="card-block">
+      <h3>Løn-satser</h3>
+      <div class="row2">
+        <div class="field"><label>Grundløn kr/t</label><input type="number" inputmode="decimal" value="${s.baseRate}" onchange="App.setNum('baseRate',this.value)"></div>
+        <div class="field"><label>OT-tillæg kr/t</label><input type="number" inputmode="decimal" value="${s.otRate}" onchange="App.setNum('otRate',this.value)"></div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Afspadsering</label>
+        <div class="seg"><button class="${s.afspadsering?'on':''}" onclick="App.setAfsp(true)">Til (1t pr. OT-time)</button><button class="${!s.afspadsering?'on':''}" onclick="App.setAfsp(false)">Fra</button></div>
+      </div>
+    </div>
+
+    <div class="card-block">
+      <h3>Mål-timer</h3>
+      <div class="row2">
+        <div class="field" style="margin-bottom:0"><label>Pr. uge</label><input type="number" inputmode="decimal" value="${s.weeklyTarget}" onchange="App.setNum('weeklyTarget',this.value)"></div>
+        <div class="field" style="margin-bottom:0"><label>Pr. dag</label><input type="number" inputmode="decimal" value="${s.dailyTarget}" onchange="App.setNum('dailyTarget',this.value)"></div>
+      </div>
+    </div>
+
+    <div class="card-block">
+      <h3>Andre tillæg</h3>
+      ${tillRows}
+      <button class="btn-ghost-sm" onclick="App.addTill()">＋ Tilføj tillæg</button>
+    </div>
+
+    <div class="card-block">
+      <h3>Lønperiode</h3>
+      <div class="field" style="margin-bottom:0"><label>Periode starter på dag i måneden</label>
+        <input type="number" min="1" max="28" value="${s.period.startDay}" onchange="App.setPeriodDay(this.value)">
+        <div class="hint">Fx 20 = perioden løber fra d. 20. til d. 20. næste måned. Udbetaling vises som sidste hverdag i måneden.</div>
+      </div>
+    </div>
+
+    <div class="card-block">
+      <h3>Fridage</h3>
+      <div class="seg" style="margin-bottom:12px">
+        ${modeBtn('none','Ingen')}${modeBtn('fixed','Faste')}${modeBtn('rotating','Roterende')}${modeBtn('manual','Manuelle')}
+      </div>
+      ${modeCfg}
+    </div>
+
+    <button class="btn-primary" onclick="App.saveSettings()">Gem indstillinger</button>`;
+
+  // account block
+  el('acc-name').textContent = user ? user.email : (mode==='cloud'?'Ikke logget ind':'Lokal tilstand');
+  el('acc-mode').textContent = user ? 'Synkroniseres i skyen ☁️' : (CLOUD?'Tryk for at logge ind':'Gemmes kun på denne enhed');
+  el('acc-btn').textContent  = user ? 'Log ud' : (CLOUD?'Log ind':'Lokal');
+}
+function setNum(k,v){ settingsDraft[k]=parseFloat(v)||0; }
+function setAfsp(v){ settingsDraft.afspadsering=v; renderSettings(); }
+function setPeriodDay(v){ let n=parseInt(v)||1; n=Math.max(1,Math.min(28,n)); settingsDraft.period.startDay=n; }
+function addTill(){ settingsDraft.tillaeg.push({name:'',rate:0,unit:'hour'}); renderSettings(); }
+function editTill(i,f,v){ settingsDraft.tillaeg[i][f]= f==='rate'?(parseFloat(v)||0):v; }
+function delTill(i){ settingsDraft.tillaeg.splice(i,1); renderSettings(); }
+function setDayMode(m){ settingsDraft.dayOff.mode=m; renderSettings(); }
+function toggleFixed(i){
+  const a=settingsDraft.dayOff.fixedDays;
+  const idx=a.indexOf(i); if(idx>=0) a.splice(idx,1); else a.push(i);
+  renderSettings();
+}
+function setRotating(v){
+  if(!v) return;
+  const d=parseKey(v), ws=weekStart(d);
+  const idx=(d.getDay()+6)%7; // Mon=0..Sun=6
+  if(idx>4){ toast('Vælg en hverdag (man–fre)'); return; }
+  settingsDraft.dayOff.rotating.offsetBase=((idx-isoWeek(ws))%5+5)%5;
+  renderSettings();
+}
+function addManual(){
+  const v=el('man-pick').value; if(!v) return;
+  if(!settingsDraft.dayOff.manualDates.includes(v)) settingsDraft.dayOff.manualDates.push(v);
+  renderSettings();
+}
+function delManual(i){ const a=settingsDraft.dayOff.manualDates.slice().sort(); const k=a[i]; settingsDraft.dayOff.manualDates=settingsDraft.dayOff.manualDates.filter(x=>x!==k); renderSettings(); }
+function saveSettings(){
+  // clean empty tillæg
+  settingsDraft.tillaeg=settingsDraft.tillaeg.filter(t=>(t.name&&t.name.trim())||t.rate);
+  settings=mergeSettings(settingsDraft);
+  persist(); closeSettings(); refresh(); toast('Indstillinger gemt');
+}
+function accountAction(){
+  if(user){ doSignOut(); }
+  else if(CLOUD){ closeSettings(); showAuth(); }
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  AUTH                                                                       ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+function showAuth(){ el('auth-err').style.display='none'; el('auth-overlay').classList.add('active'); }
+function hideAuth(){ el('auth-overlay').classList.remove('active'); }
+function authToggle(){
+  authMode = authMode==='login'?'signup':'login';
+  el('auth-submit').textContent = authMode==='login'?'Log ind':'Opret bruger';
+  el('auth-sub').textContent = authMode==='login'?'Log ind for at gemme i skyen':'Opret en konto';
+  el('auth-toggle-txt').innerHTML = authMode==='login'
+    ? 'Ingen konto? <a onclick="App.authToggle()">Opret en</a>'
+    : 'Har du en konto? <a onclick="App.authToggle()">Log ind</a>';
+}
+async function authSubmit(){
+  const email=el('auth-email').value.trim(), pass=el('auth-pass').value;
+  if(!email||!pass){ authErr('Udfyld email og adgangskode'); return; }
+  try{
+    if(authMode==='signup') await createUserWithEmailAndPassword(auth,email,pass);
+    else await signInWithEmailAndPassword(auth,email,pass);
+    // onAuthStateChanged handles the rest
+  }catch(e){ authErr(translateAuthErr(e.code||e.message)); }
+}
+function authErr(m){ const e=el('auth-err'); e.textContent=m; e.style.display='block'; }
+function translateAuthErr(c){
+  if(/invalid-credential|wrong-password|user-not-found/.test(c)) return 'Forkert email eller adgangskode';
+  if(/email-already-in-use/.test(c)) return 'Email er allerede i brug';
+  if(/weak-password/.test(c)) return 'Adgangskode for svag (min. 6 tegn)';
+  if(/invalid-email/.test(c)) return 'Ugyldig email';
+  if(/network/.test(c)) return 'Netværksfejl';
+  return 'Fejl: '+c;
+}
+function useLocal(){ mode='local'; user=null; hideAuth(); localLoad(); bootUI(); toast('Lokal tilstand'); }
+async function doSignOut(){
+  try{ if(unsub){unsub();unsub=null;} await signOut(auth);}catch(e){}
+  closeSettings();
+}
+
+// ── Apply remote snapshot ────────────────────────────────────────────────────
+function applyRemote(data){
+  applyingRemote=true;
+  entries = data.entries||{};
+  settings = mergeSettings(data.settings);
+  activeStart = data.activeStart||null;
+  localSave();
+  applyingRemote=false;
+  reflectStampUI(!!activeStart);
+  refresh(); updateClock();
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  BOOT                                                                       ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+function bootUI(){
+  reflectStampUI(!!activeStart);
+  updateClock();
+}
+
+// Public API for inline handlers
+window.App = {
+  nav, hwk, pwk, stempleInd, stempleUd,
+  openSettings, closeSettings, saveSettings, setNum, setAfsp, setPeriodDay,
+  addTill, editTill, delTill, setDayMode, toggleFixed, setRotating, addManual, delManual, accountAction,
+  openEditor, closeEditor, addSess, delSess, editSess, setEditorOff, saveEditor, clearDay, changeEditorDate,
+  authSubmit, authToggle, useLocal
+};
+
+// ── Init clock ticking immediately ──────────────────────────────────────────
+localLoad();           // instant local data for fast first paint
+bootUI();
+setInterval(updateClock,1000);
+
+// ── Firebase init ───────────────────────────────────────────────────────────
+if(CLOUD){
+  try{
+    const fbApp=initializeApp(FIREBASE_CONFIG);
+    auth=getAuth(fbApp);
+    try{
+      db=initializeFirestore(fbApp,{localCache:persistentLocalCache({tabManager:persistentSingleTabManager()})});
+    }catch(e){ db=getFirestore(fbApp); }
+    setPersistence(auth,browserLocalPersistence).catch(()=>{});
+    onAuthStateChanged(auth, u=>{
+      user=u;
+      if(u){
+        mode='cloud'; hideAuth();
+        if(unsub) unsub();
+        unsub=onSnapshot(doc(db,'users',u.uid), snap=>{
+          if(snap.exists()) applyRemote(snap.data());
+          else { setDoc(doc(db,'users',u.uid),{entries,settings,activeStart,updated:Date.now()},{merge:true}).catch(()=>{}); }
+        }, err=>toast('Sky-forbindelse mistet'));
+        bootUI(); toast('Logget ind');
+      }else{
+        if(unsub){unsub();unsub=null;}
+        showAuth();
+      }
+    });
+  }catch(e){
+    mode='local'; toast('Firebase-fejl — kører lokalt');
+  }
+}else{
+  mode='local'; // no config → local mode, app already booted
+}
+
+// ── Service Worker (offline) ────────────────────────────────────────────────
+if('serviceWorker' in navigator){
+  const swCode=`self.addEventListener('install',e=>self.skipWaiting());
+    self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).catch(()=>new Response('offline'))));});`;
+  const blob=new Blob([swCode],{type:'application/javascript'});
+  navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
+}
+</script>
+</body>
+</html>
