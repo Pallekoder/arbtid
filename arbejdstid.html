@@ -323,6 +323,62 @@ input[type=time]{font-variant-numeric:tabular-nums}
       <div id="pay-content"></div>
     </div>
 
+    <!-- CALCULATOR -->
+    <div id="p-calc" class="page">
+      <div class="header"><h1>Beregner</h1></div>
+      <div style="padding:8px 16px 0">
+        <div class="card-block">
+          <h3>Projektér over</h3>
+          <div class="seg" id="c-period-seg">
+            <button onclick="App.calcPeriod(1,this)">1 uge</button>
+            <button class="on" onclick="App.calcPeriod('period',this)">Lønperiode</button>
+            <button onclick="App.calcPeriod(4.345,this)">1 måned</button>
+            <button onclick="App.calcPeriod(52,this)">1 år</button>
+          </div>
+          <div class="field" style="margin-top:12px;margin-bottom:0">
+            <label>Antal uger</label>
+            <input type="number" inputmode="decimal" id="c-weeks" oninput="App.calcUpdate()">
+          </div>
+        </div>
+
+        <div class="card-block">
+          <h3>Normal arbejde</h3>
+          <div class="field" style="margin-bottom:0">
+            <label>Normale timer pr. uge</label>
+            <input type="number" inputmode="decimal" id="c-normal" oninput="App.calcUpdate()">
+            <div class="hint">Din basis før overarbejde. Overtid tæller for timer over dit ugentlige mål.</div>
+          </div>
+        </div>
+
+        <div class="card-block">
+          <h3>Overarbejde</h3>
+          <div class="row2">
+            <div class="field" style="margin-bottom:8px"><label>Ekstra timer pr. dag</label><input type="number" inputmode="decimal" id="c-otday" oninput="App.calcUpdate()"></div>
+            <div class="field" style="margin-bottom:8px"><label>Dage pr. uge</label><input type="number" inputmode="decimal" id="c-otdays" oninput="App.calcUpdate()"></div>
+          </div>
+          <div class="chips">
+            <div class="chip" onclick="App.calcSet('c-otdays',5)">Hver dag</div>
+            <div class="chip" onclick="App.calcSet('c-otdays',2.5)">Hver 2. dag</div>
+            <div class="chip" onclick="App.calcSet('c-otdays',7)">Alle 7 dage</div>
+          </div>
+        </div>
+
+        <div class="card-block">
+          <h3>Arbejde på fridage</h3>
+          <div class="row2">
+            <div class="field" style="margin-bottom:8px"><label>Fridage pr. uge</label><input type="number" inputmode="decimal" id="c-offdays" oninput="App.calcUpdate()"></div>
+            <div class="field" style="margin-bottom:8px"><label>Timer pr. fridag</label><input type="number" inputmode="decimal" id="c-offhrs" oninput="App.calcUpdate()"></div>
+          </div>
+          <div class="chips">
+            <div class="chip" onclick="App.calcAllOff()">Alle mine fridage</div>
+            <div class="chip" onclick="App.calcSet('c-offdays',0)">Ingen</div>
+          </div>
+        </div>
+
+        <div id="c-result"></div>
+      </div>
+    </div>
+
   </div>
 
   <nav class="nav">
@@ -330,6 +386,7 @@ input[type=time]{font-variant-numeric:tabular-nums}
     <button class="nav-item" onclick="App.nav('history',this)" id="nav-history"><span class="nav-icon">📋</span>Historik</button>
     <button class="nav-item" onclick="App.nav('schedule',this)" id="nav-schedule"><span class="nav-icon">📅</span>Fridage</button>
     <button class="nav-item" onclick="App.nav('pay',this)" id="nav-pay"><span class="nav-icon">💰</span>Løn</button>
+    <button class="nav-item" onclick="App.nav('calc',this)" id="nav-calc"><span class="nav-icon">🧮</span>Beregn</button>
   </nav>
 </div>
 
@@ -616,6 +673,7 @@ function nav(name,btn){
   if(name==='history') renderHistory();
   if(name==='schedule') renderSchedule();
   if(name==='pay') renderPay();
+  if(name==='calc') initCalc();
 }
 function refresh(){
   updateStats();
@@ -987,13 +1045,99 @@ function bootUI(){
   updateClock();
 }
 
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  CALCULATOR (what-if earnings projector)                                    ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+let calcInit=false;
+function round2(n){ return Math.round(n*100)/100; }
+function periodWeeks(){ const r=periodRange(new Date()); return (r.end-r.start)/(7*86400000); }
+function typicalOffPerWeek(){
+  const cfg=settings.dayOff;
+  if(cfg.mode==='fixed') return cfg.fixedDays.length;
+  if(cfg.mode==='rotating') return 1;
+  if(cfg.mode==='manual'){
+    const now=new Date(); now.setHours(0,0,0,0); const end=new Date(now); end.setDate(end.getDate()+28);
+    let c=0; cfg.manualDates.forEach(k=>{ const d=parseKey(k); if(d>=now&&d<end) c++; }); return c/4;
+  }
+  return 0;
+}
+function initCalc(){
+  if(!calcInit){
+    el('c-weeks').value=round2(periodWeeks());
+    el('c-normal').value=settings.weeklyTarget;
+    el('c-otday').value=2; el('c-otdays').value=5;
+    el('c-offdays').value=0; el('c-offhrs').value=settings.dailyTarget;
+    calcInit=true;
+  }
+  calcUpdate();
+}
+function calcPeriod(w,btn){
+  document.querySelectorAll('#c-period-seg button').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  el('c-weeks').value = w==='period' ? round2(periodWeeks()) : w;
+  calcUpdate();
+}
+function calcSet(id,v){ el(id).value=v; calcUpdate(); }
+function calcAllOff(){
+  el('c-offdays').value=round2(typicalOffPerWeek());
+  if(!parseFloat(el('c-offhrs').value)) el('c-offhrs').value=settings.dailyTarget;
+  calcUpdate();
+}
+function projectPay(weeks, normalWk, extraOTwk, offHoursWk){
+  const W=settings.weeklyTarget, B=settings.baseRate, O=settings.otRate;
+  const weeklyH=normalWk+extraOTwk+offHoursWk;
+  const otH_wk=Math.max(0,weeklyH-W), normH_wk=weeklyH-otH_wk;
+  const totalH=weeklyH*weeks, otH=otH_wk*weeks, normH=normH_wk*weeks;
+  const pw=periodWeeks()||4.345;
+  let till=0; const tillRows=[];
+  settings.tillaeg.forEach(t=>{
+    const amt = t.unit==='hour' ? (t.rate||0)*totalH : (t.rate||0)*(weeks/pw);
+    if(Math.abs(amt)>0.001){ till+=amt; tillRows.push({name:t.name,amt}); }
+  });
+  const total=normH*B+otH*B+otH*O+till;
+  // baseline: only the normal weekly hours, no extras
+  const bOT=Math.max(0,normalWk-W)*weeks, bNorm=normalWk*weeks-bOT;
+  let bTill=0; settings.tillaeg.forEach(t=>{ bTill += t.unit==='hour'?(t.rate||0)*(normalWk*weeks):(t.rate||0)*(weeks/pw); });
+  const baseTotal=bNorm*B+bOT*B+bOT*O+bTill;
+  return {weeks,weeklyH,totalH,normH,otH,base:normH*B,otBase:otH*B,otPay:otH*O,
+          afsp:settings.afspadsering?otH:0,till,tillRows,total,baseTotal,extra:total-baseTotal};
+}
+function calcUpdate(){
+  if(!el('c-weeks')) return;
+  const weeks=parseFloat(el('c-weeks').value)||0;
+  const normalWk=parseFloat(el('c-normal').value)||0;
+  const otPerDay=parseFloat(el('c-otday').value)||0;
+  const otDays=parseFloat(el('c-otdays').value)||0;
+  const offDays=parseFloat(el('c-offdays').value)||0;
+  const offHrs=parseFloat(el('c-offhrs').value)||0;
+  const r=projectPay(weeks, normalWk, otPerDay*otDays, offDays*offHrs);
+  let tillRows=''; r.tillRows.forEach(x=>tillRows+=`<div class="pay-row"><span class="pay-label">${x.name||'Tillæg'}</span><span class="pay-val">${fmtKr(x.amt)}</span></div>`);
+  el('c-result').innerHTML=`
+    <div class="pay-card">
+      <div class="pay-row"><span class="pay-label">Timer i alt (${fmtH(r.weeklyH)}/uge × ${round2(weeks)})</span><span class="pay-val">${fmtH(r.totalH)}</span></div>
+      <div class="pay-row"><span class="pay-label">Normale timer</span><span class="pay-val">${fmtH(r.normH)}</span></div>
+      <div class="pay-row"><span class="pay-label">Overarbejdstimer</span><span class="pay-val amber">${fmtH(r.otH)}</span></div>
+      ${settings.afspadsering?`<div class="pay-row"><span class="pay-label">Afspadsering optjent</span><span class="pay-val purple">${fmtH(r.afsp)}</span></div>`:''}
+      <div class="pay-row"><span class="pay-label">Grundløn</span><span class="pay-val green">${fmtKr(r.base+r.otBase)}</span></div>
+      <div class="pay-row"><span class="pay-label">OT-tillæg</span><span class="pay-val amber">${fmtKr(r.otPay)}</span></div>
+      ${tillRows}
+      <div class="pay-row total"><span class="pay-label" style="color:var(--text);font-weight:700">Forventet løn</span><span class="pay-val blue big">${fmtKr(r.total)}</span></div>
+    </div>
+    <div class="pay-card" style="margin-top:10px">
+      <div class="pay-row"><span class="pay-label">Hvis kun normale timer</span><span class="pay-val">${fmtKr(r.baseTotal)}</span></div>
+      <div class="pay-row total"><span class="pay-label" style="color:var(--green);font-weight:700">Ekstra ved overarbejde/fridage</span><span class="pay-val green big">+${fmtKr(r.extra)}</span></div>
+    </div>
+    <div class="pay-note">Estimat. Overarbejde = timer over ${fmtH(settings.weeklyTarget)}/uge (${settings.baseRate} kr grundløn + ${settings.otRate} kr OT-tillæg pr. time)${settings.afspadsering?' + 1 afspadseringstime pr. OT-time':''}. Faste periode-tillæg fordeles over perioden.</div>`;
+}
+
 // Public API for inline handlers
 window.App = {
   nav, hwk, pwk, stempleInd, stempleUd,
   openSettings, closeSettings, saveSettings, setNum, setAfsp, setPeriodDay,
   addTill, editTill, delTill, setDayMode, toggleFixed, setRotating, addManual, delManual, accountAction,
   openEditor, closeEditor, addSess, delSess, editSess, setEditorOff, saveEditor, clearDay, changeEditorDate,
-  authSubmit, authToggle, useLocal
+  authSubmit, authToggle, useLocal,
+  calcUpdate, calcPeriod, calcSet, calcAllOff
 };
 
 // ── Init clock ticking immediately ──────────────────────────────────────────
